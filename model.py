@@ -106,10 +106,10 @@ def feature_engineering(data, streaming=None, download_threshold=1000000):
     # Feature 5: mean of the downloaded packets' sizes
 #     size_mean = np.mean(pck_sizes)
     # Feature 6: ratio of large received packets to all received packets
-    pkts_received = pd.DataFrame({'2->1Pkt_Times': data['2->1Pkt_Times'].sum(), '2->1Pkt_Sizes': data['2->1Pkt_Sizes'].sum()}).astype(int)
+    pkts_received = pd.DataFrame({'2->1Pkt_Times': data['2->1Pkt_Times'].sum(), '2->1Pkt_Sizes': data['2->1Pkt_Sizes'].sum()}).astype('int64')
     large_ratio = pkts_received[pkts_received['2->1Pkt_Sizes'] > 1200]['2->1Pkt_Sizes'].count() / pkts_received['2->1Pkt_Sizes'].count()
     # Feature 7: ratio of small sent packets to all sent packets
-    pkts_sent = pd.DataFrame({'1->2Pkt_Times': data['1->2Pkt_Times'].sum(), '1->2Pkt_Sizes': data['1->2Pkt_Sizes'].sum()}).astype(int)
+    pkts_sent = pd.DataFrame({'1->2Pkt_Times': data['1->2Pkt_Times'].sum(), '1->2Pkt_Sizes': data['1->2Pkt_Sizes'].sum()}).astype('int64')
     small_ratio = pkts_sent[pkts_sent['1->2Pkt_Sizes'] < 200]['1->2Pkt_Sizes'].count() / pkts_sent['1->2Pkt_Sizes'].count()
     
     if streaming is not None:
