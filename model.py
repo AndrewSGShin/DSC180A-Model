@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 from scipy.signal import find_peaks, peak_widths
-from sklearn import tree
+# from sklearn import tree
+from sklearn.ensemble import RandomForestClassifier
 import os, sys
 
 ### HELPER FUNCTIONS
@@ -104,15 +105,22 @@ def feature_engineering(data, streaming=None, download_threshold=1000000):
     size_std = np.std(pck_sizes)
     # Feature 5: mean of the downloaded packets' sizes
 #     size_mean = np.mean(pck_sizes)
+    # Feature 6: ratio of large received packets to all received packets
+    pkts_received = pd.DataFrame({'2->1Pkt_Times': data['2->1Pkt_Times'].sum(), '2->1Pkt_Sizes': data['2->1Pkt_Sizes'].sum()}).astype(int)
+    large_ratio = pkts_received[pkts_received['2->1Pkt_Sizes'] > 1200]['2->1Pkt_Sizes'].count() / pkts_received['2->1Pkt_Sizes'].count()
+    # Feature 7: ratio of small sent packets to all sent packets
+    pkts_sent = pd.DataFrame({'1->2Pkt_Times': data['1->2Pkt_Times'].sum(), '1->2Pkt_Sizes': data['1->2Pkt_Sizes'].sum()}).astype(int)
+    small_ratio = pkts_sent[pkts_sent['1->2Pkt_Sizes'] < 200]['1->2Pkt_Sizes'].count() / pkts_sent['1->2Pkt_Sizes'].count()
+    
     if streaming is not None:
-        return [percent, time_std, height_std, size_std, int(streaming)]
+        return [percent, time_std, height_std, size_std, large_ratio, small_ratio, int(streaming)]
     else:
-        return [percent, time_std, height_std, size_std]
+        return [percent, time_std, height_std, size_std, large_ratio, small_ratio]
 
 ### BUILD FEATURE TABLE
 def build_features(datasets, is_streaming=None, upload_threshold=100000, download_threshold=1000000, height=0.5):
     if is_streaming is not None:
-        cols = ['is_peak%', 'peak_interval_std', 'peak_height_std', 'pckt_size_std', 'is_streaming']
+        cols = ['is_peak%', 'peak_interval_std', 'peak_height_std', 'pckt_size_std', 'large_pkt_received_ratio', 'small_pkt_sent_ratio', 'is_streaming']
         if type(datasets) == str:
             temp = etl_dataset(csv=datasets, upload_threshold=upload_threshold, download_threshold=download_threshold, height=height)
             row = feature_engineering(temp, streaming=is_streaming, download_threshold=download_threshold)
@@ -126,7 +134,7 @@ def build_features(datasets, is_streaming=None, upload_threshold=100000, downloa
                 count += 1
             return pd.DataFrame(rows, columns=cols).fillna(0)
     else:
-        cols = ['is_peak%', 'peak_interval_std', 'peak_height_std', 'pckt_size_std']
+        cols = ['is_peak%', 'peak_interval_std', 'peak_height_std', 'pckt_size_std', 'large_pkt_received_ratio', 'small_pkt_sent_ratio']
         if type(datasets) == str:
             temp = etl_dataset(csv=datasets, upload_threshold=upload_threshold, download_threshold=download_threshold, height=height)
             row = feature_engineering(temp, download_threshold=download_threshold)
@@ -142,7 +150,7 @@ def build_features(datasets, is_streaming=None, upload_threshold=100000, downloa
     
 def run_model(test, is_streaming=None):
     train = []
-    for i in range(20):
+    for i in range(25):
         train.append(build_features('training data/video/' + os.listdir('training data/video/')[i], True))
         train.append(build_features('training data/no-video/' + os.listdir('training data/no-video/')[i], False))
     train = pd.concat(train, ignore_index=True)
@@ -152,9 +160,9 @@ def run_model(test, is_streaming=None):
     testing = build_features(test)
     
     # Logistic Regression Model
-    dt = tree.DecisionTreeClassifier(max_depth=4)
-    dt.fit(train_X, train_y)
-    return dt.predict(testing)
+    rf = RandomForestClassifier()
+    rf.fit(train_X, train_y)
+    return rf.predict(testing)
 
 filepath = sys.argv[1]
 print('The predicted classification for the input is: ', run_model(filepath))
